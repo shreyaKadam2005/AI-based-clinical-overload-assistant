@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Clinical Assistant — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg-1:#071026;
+      --accent:#0b74de;
+      --accent-2:#6c5ce7;
+      --muted:#9fb0cc;
+      --card:#071a36;
+      --glass: rgba(255,255,255,0.03);
+      --radius:14px;
+      --success: #17c964;
+      --danger: #ff6b6b;
+      --soft:#eaf6ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,var(--bg-1), #041526);color:#e7f2ff;min-height:100vh;padding:18px}
+    a{color:inherit}
+    .shell{max-width:1250px;margin:0 auto;display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start}
+    .sidebar{background:linear-gradient(180deg,#051226,#06233b);padding:18px;border-radius:14px;position:sticky;top:18px;height:calc(100vh - 36px);display:flex;flex-direction:column}
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+    .logo{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:800;color:white}
+    .brand h1{font-size:16px;margin:0}
+    .brand p{margin:0;color:var(--muted);font-size:12px}
+    .nav{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+    .nav button{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;border:0;background:transparent;color:#cfe6ff;cursor:pointer;font-weight:700}
+    .nav button.active{background:linear-gradient(90deg, rgba(11,116,222,0.1), rgba(108,92,231,0.04));box-shadow:0 8px 24px rgba(11,116,222,0.06)}
+    .meta{margin-top:auto;color:var(--muted);font-size:13px}
+    .main{min-height:80vh}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .page{display:none}
+    .page.active{display:block}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);padding:14px;border-radius:12px;box-shadow:0 10px 30px rgba(2,8,23,0.45)}
+    .grid-2{display:grid;grid-template-columns:1fr 380px;gap:14px}
+    .rec-controls{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+    .btn{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-weight:700}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+    .btn.warn{background:linear-gradient(90deg,#ffbb66,#ff7a66);color:#08111b}
+    .status{font-weight:700;color:var(--muted)}
+    .timer{font-weight:800;font-size:14px;color:#d9f0ff}
+    #wave{width:100%;height:90px;border-radius:8px;background:linear-gradient(180deg,#051726,#071a2a);display:block}
+    .transcript{white-space:pre-wrap;line-height:1.45;padding:12px;border-radius:10px;border:1px dashed rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));min-height:150px;color:#e6f3ff;overflow:auto}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .chip{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:999px;border:1px solid rgba(11,116,222,0.08);font-size:13px;color:#dff0ff;cursor:pointer}
+    .field{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#dff0ff}
+    textarea.field{min-height:80px;resize:vertical}
+    .entity-list{max-height:220px;overflow:auto;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(0,0,0,0.02), transparent)}
+    .entity-row{display:flex;justify-content:space-between;padding:8px;border-bottom:1px dashed rgba(255,255,255,0.02);color:#dff0ff}
+    .small{font-size:13px;color:var(--muted)}
+    .ai-suggestions{background:linear-gradient(90deg, rgba(11,116,222,0.06), rgba(108,92,231,0.03));padding:10px;border-radius:8px}
+    .flex{display:flex;gap:8px;align-items:center}
+    .toast{position:fixed;right:18px;bottom:18px;background:#061426;color:#e7f2ff;padding:10px 14px;border-radius:8px;box-shadow:0 10px 30px rgba(2,8,23,0.6);display:none;z-index:999}
+    @media (max-width:980px){
+      .shell{grid-template-columns:1fr;padding:12px}
+      .grid-2{grid-template-columns:1fr}
+      .sidebar{position:static;height:auto}
+      .logo{width:40px;height:40px}
+    }
+  </style>
+</head>
+<body>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- LOGIN modal -->
+  <div id="loginView" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(2,8,23,0.8), rgba(2,8,23,0.95));z-index:30">
+    <div style="width:420px;padding:26px;border-radius:14px;background:linear-gradient(180deg,#071a2b,#062034);box-shadow:0 20px 60px rgba(0,0,0,0.6);color:#e9f6ff">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-weight:800;color:white">AI</div>
+        <div>
+          <h2 style="margin:0">AI Clinical Assistant</h2>
+          <div style="color:var(--muted);font-size:13px">Sign in to access the dashboard</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+        <input id="loginUser" placeholder="Doctor username" class="field" />
+        <input id="loginPass" placeholder="Password" type="password" class="field" />
+        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:6px">
+          <div style="font-size:13px;color:var(--muted)">Demo login — enter anything</div>
+          <button id="loginBtn" class="btn primary">Sign in</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP SHELL -->
+  <div class="shell" id="app" style="display:none">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">+</div>
+        <div>
+          <h1>AI Clinical</h1>
+          <p>Assistant Dashboard</p>
+        </div>
+      </div>
+
+      <div class="nav" id="nav">
+        <button data-page="studio">🎙️ Transcription</button>
+        <button data-page="history">📜 History</button>
+        <button id="logoutBtn" style="margin-top:10px;background:transparent;border-top:1px dashed rgba(255,255,255,0.02);padding-top:10px;color:#ffdddd">Logout</button>
+      </div>
+
+      <div class="meta">
+        Backend: <strong id="backendUrl"></strong>
+        <div style="margin-top:8px;color:var(--muted);font-size:12px">Keep patient data private</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 id="pageTitle">Home</h2>
+          <div id="pageSub" class="small">Welcome back, Doctor</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:800">Dr. <span id="doctorDisplay">—</span></div>
+          <div id="doctorEmail" class="small">doctor@clinic.local</div>
+        </div>
+      </div>
+
+      <!-- HOME PAGE -->
+      <div id="home" class="page active">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3 style="margin:0">Quick Actions</h3>
+              <div class="small">Start transcription, generate a prescription, or check history</div>
+            </div>
+            <div>
+              <button class="btn primary" data-goto="studio">Start Transcription</button>
+            </div>
+          </div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="grid-2">
+          <div class="card">
+            <h4 style="margin-top:0">Recent transcripts</h4>
+            <div id="recentList" class="small" style="margin-top:8px;color:var(--muted)">No recent transcripts</div>
+          </div>
+          <div class="card">
+            <h4 style="margin-top:0">System</h4>
+            <div style="margin-top:8px" class="small">Backend status: <strong id="backendStatus">Checking...</strong></div>
+            <div style="margin-top:8px" class="small">Recording: <strong>MediaRecorder</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSCRIPTION STUDIO -->
+      <div id="studio" class="page">
+        <div class="grid-2">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:800;font-size:18px">Transcription Studio</div>
+                <div class="small">Record/upload audio → Translate → Detect language → Extract medical entities</div>
+              </div>
+              <div style="text-align:right">
+                <div id="recStatus" class="status">Idle</div>
+                <div id="recTimer" class="timer">00:00</div>
+              </div>
+            </div>
+
+            <canvas id="wave" style="margin-top:10px"></canvas>
+
+            <div class="rec-controls">
+              <button id="startBtn" class="btn primary">🎙️ Start</button>
+              <button id="pauseBtn" class="btn warn" disabled>⏸️ Pause</button>
+              <button id="resumeBtn" class="btn" disabled style="background:var(--accent);color:#fff">▶️ Resume</button>
+              <button id="stopBtn" class="btn ghost" disabled>⏹️ Stop</button>
+              <input type="file" id="fileInput" accept="audio/*" style="display:none" />
+              <button id="uploadBtn" class="btn ghost">📁 Upload</button>
+              <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+                <button id="analyzeBtn" class="btn primary">🔎 Analyze</button>
+                <button id="generatePrescriptionBtn" class="btn primary">🧾 Prescription</button>
+              </div>
+            </div>
+
+            <div style="margin-top:12px">
+              <div class="small">Live transcript (editable). Click Analyze to extract entities / detect language.</div>
+              <div id="liveOutput" class="transcript" contenteditable="true" style="margin-top:8px">No transcript yet.</div>
+              <div class="chips" id="entityChips"></div>
+              <div style="display:flex;gap:12px;margin-top:12px;align-items:center">
+                <div class="small">Audio preview</div>
+                <audio id="audioPreview" controls style="width:100%;margin-top:6px"></audio>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <div style="font-weight:700">Patient / Doctor</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+                <input id="doctor" class="field" placeholder="Doctor name" />
+                <input id="name" class="field" placeholder="Patient name" />
+                <input id="age" class="field" placeholder="Age" />
+                <input id="weight" class="field" placeholder="Weight (kg)" />
+              </div>
+              <textarea id="medicines" class="field" placeholder="notes can doctor write here" style="margin-top:8px"></textarea>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:700">Detected language & entities</div>
+                <div class="small" id="langShort">-</div>
+              </div>
+              <div id="entityOutput" class="entity-list" style="margin-top:8px;display:block;"></div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:700">AI Suggestions</div>
+                <div class="small">Auto hints based on transcript</div>
+              </div>
+              <div id="aiSuggestions" class="ai-suggestions" style="margin-top:8px">No suggestions yet</div>
+              <div id="suggestionBox" class="ai-suggestions" style="margin-top:8px;display:block;"></div>
+            </div>
+
+            <div style="display:flex;gap:8px">
+              <button id="clearBtn" class="btn ghost">Clear</button>
+              <button id="saveTranscript" class="btn primary">Save Transcript</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRESCRIPTION PAGE -->
+      <div id="prescription" class="page">
+        <div class="card">
+          <h3 style="margin-top:0">Prescription Generator</h3>
+          <div class="small">Use transcription from Studio or fill manually</div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
+            <input id="p_doctor" class="field" placeholder="Doctor name" />
+            <input id="p_name" class="field" placeholder="Patient name" />
+            <input id="p_age" class="field" placeholder="Age" />
+            <input id="p_weight" class="field" placeholder="Weight (kg)" />
+          </div>
+
+          <textarea id="p_symptoms" class="field" placeholder="Symptoms or transcript (paste from Studio)" style="margin-top:12px"></textarea>
+
+          <!-- Doctor Signature Upload -->
+          <div style="margin-top:12px">
+            <label class="small">Doctor Signature</label>
+            <input type="file" id="signatureUpload" accept="image/*" class="field" style="padding:8px" />
+            <div style="margin-top:10px">
+              <img id="signaturePreview" src="" style="display:none; max-width:220px; max-height:100px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); padding:6px; background:white;" />
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button id="p_generate" class="btn primary">Generate & Download PDF</button>
+          </div>
+          <div id="p_out" style="margin-top:12px;color:var(--muted)">No prescription created yet.</div>
+        </div>
+      </div>
+
+      <!-- HISTORY -->
+      <div id="history" class="page">
+        <div class="card">
+          <h3 style="margin-top:0">History</h3>
+          <div id="historyList" style="margin-top:10px;color:var(--muted)">No history yet</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* ============================
+       CONFIG + helpers
+       ============================ */
+    const BACKEND = (location.hostname === "127.0.0.1" || location.hostname === "localhost")
+      ? "http://127.0.0.1:8000"
+      : window.location.origin;
+
+    const backendUrlElement = document.getElementById('backendUrl');
+    if (backendUrlElement) backendUrlElement.innerText = BACKEND;
+
+    function showToast(msg, time = 3500){
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.innerText = msg;
+      t.style.display = 'block';
+      t.style.opacity = '1';
+      setTimeout(()=>{ 
+        t.style.opacity = '0'; 
+        setTimeout(()=> t.style.display='none', 300); 
+      }, time);
+    }
+
+    function escapeHtml(text){ 
+      if(!text) return ''; 
+      return String(text).replace(/[&<>"'=\/]/g, s => {
+        const map = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+          '/': '&#x2F;',
+          '=': '&#x3D;'
+        };
+        return map[s];
+      }); 
+    }
+
+    /* ==========
+       AUTH / INIT
+       ========== */
+    function isAuth(){ return !!localStorage.getItem('ai_user'); }
+    function setAuth(u){ localStorage.setItem('ai_user', JSON.stringify(u)); }
+    function clearAuth(){ localStorage.removeItem('ai_user'); }
+
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', ()=>{ 
+        const user = document.getElementById('loginUser')?.value.trim() || 'doctor'; 
+        setAuth({ user, email: user+'@clinic.local' }); 
+        initApp(); 
+      });
+    }
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', ()=>{ 
+        clearAuth(); 
+        location.reload(); 
+      });
+    }
+
+    function initApp(){
+      if(!isAuth()){ 
+        const loginView = document.getElementById('loginView');
+        const app = document.getElementById('app');
+        if (loginView) loginView.style.display = 'flex';
+        if (app) app.style.display = 'none';
+        return; 
+      }
+      
+      const loginView = document.getElementById('loginView');
+      const app = document.getElementById('app');
+      if (loginView) loginView.style.display = 'none';
+      if (app) app.style.display = 'grid';
+      
+      const u = JSON.parse(localStorage.getItem('ai_user'));
+      const doctorDisplay = document.getElementById('doctorDisplay');
+      const doctorEmail = document.getElementById('doctorEmail');
+      if (doctorDisplay) doctorDisplay.innerText = u.user || 'Doctor';
+      if (doctorEmail) doctorEmail.innerText = u.email || 'doctor@clinic.local';
+      
+      fetch(BACKEND + '/')
+        .then(r => r.json())
+        .then(() => {
+          const backendStatus = document.getElementById('backendStatus');
+          if (backendStatus) backendStatus.innerText = 'Online';
+        })
+        .catch(() => {
+          const backendStatus = document.getElementById('backendStatus');
+          if (backendStatus) backendStatus.innerText = 'Offline';
+        });
+      
+      renderHistory();
+      showPage('home');
+    }
+
+    /* Navigation */
+    document.querySelectorAll('#nav button[data-page]').forEach(btn=>{ 
+      btn.addEventListener('click', ()=>{ 
+        const page = btn.dataset.page; 
+        showPage(page); 
+        document.querySelectorAll('#nav button[data-page]').forEach(b=>b.classList.remove('active')); 
+        btn.classList.add('active'); 
+      }); 
+    });
+
+    document.querySelectorAll('[data-goto]').forEach(b=>{ 
+      b.addEventListener('click', e=>{ 
+        showPage(e.target.dataset.goto); 
+      }); 
+    });
+
+    function showPage(id){ 
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); 
+      const el = document.getElementById(id); 
+      if(el) el.classList.add('active'); 
+      const pageTitle = document.getElementById('pageTitle');
+      if (pageTitle) pageTitle.innerText = id.charAt(0).toUpperCase()+id.slice(1); 
+    }
+
+    /* =============
+       WAVE + RECORD
+       ============= */
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let audioStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
+    let rafId = null;
+    let recSeconds = 0;
+    let recTimer = null;
+
+    const waveCanvas = document.getElementById('wave');
+    if (waveCanvas) {
+      const wctx = waveCanvas.getContext('2d');
+      function resizeWave(){ 
+        if (waveCanvas) {
+          waveCanvas.width = waveCanvas.clientWidth; 
+          waveCanvas.height = waveCanvas.clientHeight;
+        }
+      }
+      window.addEventListener('resize', resizeWave);
+      resizeWave();
+
+      function drawWave(){ 
+        if(!analyser || !wctx || !waveCanvas) return; 
+        analyser.getByteTimeDomainData(dataArray); 
+        wctx.clearRect(0,0,waveCanvas.width,waveCanvas.height); 
+        wctx.lineWidth = 2; 
+        wctx.strokeStyle = '#2fb0ff'; 
+        wctx.beginPath(); 
+        const slice = waveCanvas.width / dataArray.length; 
+        for(let i=0;i<dataArray.length;i++){ 
+          const v = dataArray[i] / 128.0; 
+          const y = v * waveCanvas.height / 2; 
+          if(i===0) wctx.moveTo(0,y); 
+          else wctx.lineTo(i*slice, y); 
+        } 
+        wctx.stroke(); 
+        rafId = requestAnimationFrame(drawWave); 
+      }
+      window.drawWave = drawWave;
+    }
+
+    function formatTime(s){ 
+      const m = String(Math.floor(s/60)).padStart(2,'0'); 
+      const sec = String(s%60).padStart(2,'0'); 
+      return `${m}:${sec}`; 
+    }
+
+    function startTimer(){ 
+      recSeconds = 0; 
+      const recTimerEl = document.getElementById('recTimer');
+      if (recTimerEl) recTimerEl.innerText='00:00';
+      recTimer = setInterval(()=>{ 
+        recSeconds++; 
+        const timerEl = document.getElementById('recTimer');
+        if (timerEl) timerEl.innerText = formatTime(recSeconds);
+      }, 1000); 
+    }
+
+    function stopTimer(){ 
+      clearInterval(recTimer); 
+      const timerEl = document.getElementById('recTimer');
+      if (timerEl) timerEl.innerText='00:00';
+    }
+
+    async function startRecording(){
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ 
+        showToast('Microphone not supported'); 
+        return; 
+      }
+      try{
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const src = audioContext.createMediaStreamSource(audioStream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 2048;
+        dataArray = new Uint8Array(analyser.fftSize);
+        src.connect(analyser);
+        if (window.drawWave) window.drawWave();
+        
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm' });
+        mediaRecorder.ondataavailable = e => { if(e.data && e.data.size) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = onRecordingStop;
+        mediaRecorder.start();
+        
+        const recStatus = document.getElementById('recStatus');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        if (recStatus) recStatus.innerText = 'Recording...';
+        if (startBtn) startBtn.disabled = true;
+        if (pauseBtn) pauseBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = false;
+        
+        startTimer();
+      }catch(e){ 
+        console.error(e); 
+        showToast('Could not start recording: ' + e.message); 
+      }
+    }
+
+    function pauseRecording(){ 
+      if(mediaRecorder && typeof mediaRecorder.pause === 'function'){ 
+        try{ 
+          mediaRecorder.pause(); 
+          const recStatus = document.getElementById('recStatus');
+          const pauseBtn = document.getElementById('pauseBtn');
+          const resumeBtn = document.getElementById('resumeBtn');
+          if (recStatus) recStatus.innerText='Paused'; 
+          if (pauseBtn) pauseBtn.disabled = true; 
+          if (resumeBtn) resumeBtn.disabled = false; 
+          stopTimer(); 
+        } catch(e){ showToast('Pause failed'); } 
+      } else showToast('Pause not supported in this browser'); 
+    }
+
+    function resumeRecording(){ 
+      if(mediaRecorder && typeof mediaRecorder.resume === 'function'){ 
+        try{ 
+          mediaRecorder.resume(); 
+          const recStatus = document.getElementById('recStatus');
+          const pauseBtn = document.getElementById('pauseBtn');
+          const resumeBtn = document.getElementById('resumeBtn');
+          if (recStatus) recStatus.innerText='Recording...'; 
+          if (pauseBtn) pauseBtn.disabled = false; 
+          if (resumeBtn) resumeBtn.disabled = true; 
+          startTimer(); 
+        } catch(e){ showToast('Resume failed'); } 
+      } else showToast('Resume not supported in this browser'); 
+    }
+
+    function stopRecording(){ 
+      if(mediaRecorder && mediaRecorder.state !== 'inactive'){ 
+        try{ mediaRecorder.stop(); }catch(e){} 
+      } 
+      const recStatus = document.getElementById('recStatus');
+      const startBtn = document.getElementById('startBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const resumeBtn = document.getElementById('resumeBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      
+      if (recStatus) recStatus.innerText = 'Processing...'; 
+      if (startBtn) startBtn.disabled = false; 
+      if (pauseBtn) pauseBtn.disabled = true; 
+      if (resumeBtn) resumeBtn.disabled = true; 
+      if (stopBtn) stopBtn.disabled = true; 
+      stopTimer(); 
+    }
+
+    async function onRecordingStop(){
+      cancelAnimationFrame(rafId || 0);
+      if(audioContext) try{ await audioContext.close(); }catch(e){}
+      if(audioStream) try{ audioStream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      analyser = null;
+      
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const audioPreview = document.getElementById('audioPreview');
+      if (audioPreview) audioPreview.src = URL.createObjectURL(blob);
+      
+      const fd = new FormData(); 
+      fd.append('file', blob, 'recording.webm');
+      
+      try{
+        const recStatus = document.getElementById('recStatus');
+        if (recStatus) recStatus.innerText = 'Uploading...';
+        
+        const res = await fetch(BACKEND + '/transcribe_audio', { method: 'POST', body: fd });
+        if(!res.ok){ 
+          const err = await res.json().catch(()=>({error:'Transcription failed'})); 
+          throw new Error(err.error || res.statusText); 
+        }
+        const data = await res.json();
+        const text = data.text || data.original_text || '';
+        
+        const liveOutput = document.getElementById('liveOutput');
+        if (liveOutput) liveOutput.innerText = text || 'No transcript';
+        
+        loadEntities(data);
+        persistTranscript({ text, lang: data.language || 'unknown', timestamp: Date.now(), patient: document.getElementById('name')?.value || 'Unknown' });
+        
+        if (recStatus) recStatus.innerText = 'Transcription ready';
+        showToast('Transcription complete');
+      }catch(e){ 
+        console.error(e); 
+        const recStatus = document.getElementById('recStatus');
+        if (recStatus) recStatus.innerText = 'Error'; 
+        showToast('Transcription failed: ' + e.message); 
+      }
+    }
+
+    /* Upload file */
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    
+    if (uploadBtn) {
+      uploadBtn.addEventListener('click', ()=> {
+        if (fileInput) fileInput.click();
+      });
+    }
+    
+    if (fileInput) {
+      fileInput.addEventListener('change', async (ev)=>{
+        const f = ev.target.files[0];
+        if(!f) return;
+        
+        const recStatus = document.getElementById('recStatus');
+        if (recStatus) recStatus.innerText = 'Uploading...';
+        
+        const fd = new FormData(); 
+        fd.append('file', f, f.name);
+        
+        try{
+          const res = await fetch(BACKEND + '/transcribe_audio', { method:'POST', body: fd });
+          if(!res.ok) { 
+            const err = await res.json().catch(()=>({error:'Upload failed'})); 
+            throw new Error(err.error || res.statusText); 
+          }
+          const data = await res.json();
+          const text = data.text || data.original_text || '';
+          
+          const liveOutput = document.getElementById('liveOutput');
+          if (liveOutput) liveOutput.innerText = text || '';
+          
+          const audioPreview = document.getElementById('audioPreview');
+          if (audioPreview) audioPreview.src = URL.createObjectURL(f);
+          
+          loadEntities(data);
+          persistTranscript({ text, lang: data.language || 'unknown', timestamp: Date.now(), patient: document.getElementById('name')?.value || 'Unknown' });
+          
+          if (recStatus) recStatus.innerText = 'Transcription ready';
+          showToast('Upload & transcription complete');
+        }catch(e){ 
+          console.error(e); 
+          if (recStatus) recStatus.innerText='Error'; 
+          showToast('Upload failed: '+e.message); 
+        }
+      });
+    }
+
+    /* Analyze Text */
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    if (analyzeBtn) {
+      analyzeBtn.addEventListener('click', analyzeCurrentText);
+    }
+
+    async function analyzeCurrentText() {
+      const liveOutput = document.getElementById('liveOutput');
+      const txt = liveOutput?.innerText.trim();
+      if (!txt) { showToast('No transcript text to analyze'); return; }
+      
+      const recStatus = document.getElementById('recStatus');
+      if (recStatus) recStatus.innerText = 'Analyzing...';
+      
+      try {
+        const res = await fetch(BACKEND + '/analyze_text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: txt })
+        });
+        
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: 'Analyze failed' }));
+          throw new Error(err.error || res.statusText);
+        }
+        
+        const data = await res.json();
+        console.log("ANALYSIS:", data);
+
+        const symptoms = [];
+        const diseases = [];
+        const medicines = [];
+        const tests = [];
+        const instructions = [];
+        const others = [];
+
+        (Array.isArray(data.entities) ? data.entities : []).forEach(ent => {
+          const type = (ent.type || '').toLowerCase();
+          const value = ent.value || '';
+          if(!value) return;
+          if (type === "symptom") symptoms.push(value);
+          else if (type === "diagnosis" || type === "disease") diseases.push(value);
+          else if (type === "medicine" || type === "drug" || type === "medication") medicines.push(value);
+          else if (type === "test" || type === "exam") tests.push(value);
+          else if (type === "instruction") instructions.push(value);
+          else others.push(value);
+        });
+
+        const entityOutputEl = document.getElementById("entityOutput");
+        if(entityOutputEl){
+          entityOutputEl.innerHTML = `
+            <div class="small" style="color:var(--muted);margin-bottom:6px">Combined entities</div>
+            <div><b>🩺 Symptoms:</b> ${escapeHtml(symptoms.join(", ") || "None")}</div>
+            <div style="margin-top:6px"><b>🧬 Diseases:</b> ${escapeHtml(diseases.join(", ") || "None")}</div>
+            <div style="margin-top:6px"><b>💊 Medicines:</b> ${escapeHtml(medicines.join(", ") || "None")}</div>
+            <div style="margin-top:6px"><b>🧪 Tests:</b> ${escapeHtml(tests.join(", ") || "None")}</div>
+            <div style="margin-top:6px"><b>📘 Instructions:</b> ${escapeHtml(instructions.join(", ") || "None")}</div>
+            <div style="margin-top:8px"><button id="copyAllBtn" class="btn ghost" style="padding:6px 10px">📋 Copy All Entities</button></div>
+          `;
+          
+          const copyBtn = document.getElementById("copyAllBtn");
+          if(copyBtn){
+            copyBtn.addEventListener("click", ()=>{
+              const fullText = `Symptoms: ${symptoms.join(", ") || "None"}\nDiseases: ${diseases.join(", ") || "None"}\nMedicines: ${medicines.join(", ") || "None"}\nTests: ${tests.join(", ") || "None"}\nInstructions: ${instructions.join(", ") || "None"}\nOthers: ${others.join(", ") || "None"}`;
+              navigator.clipboard.writeText(fullText).then(()=> showToast("All entities copied!")).catch(()=> showToast("Copy failed"));
+            });
+          }
+        }
+
+        const suggestionBox = document.getElementById("suggestionBox");
+        const aiSuggestions = document.getElementById("aiSuggestions");
+        const suggestions = data.suggested_questions || data.suggestions || [];
+        
+        if(suggestionBox) suggestionBox.innerHTML = suggestions.length ? suggestions.map(q => '• ' + escapeHtml(q)).join('<br>') : '<div class="small" style="color:var(--muted)">No suggestions yet</div>';
+        if(aiSuggestions && (!aiSuggestions.innerHTML || aiSuggestions.innerText.includes('No suggestions'))) aiSuggestions.innerHTML = suggestionBox ? suggestionBox.innerHTML : '';
+
+        const lang = data.language || "unknown";
+        const langShort = document.getElementById("langShort");
+        if (langShort) langShort.innerText = lang;
+
+        if (recStatus) recStatus.innerText = 'Analysis ready';
+        showToast('Analysis complete');
+      } catch (e) {
+        console.error(e);
+        if (recStatus) recStatus.innerText = 'Error';
+        showToast('Analyze failed: ' + e.message);
+      }
+    }
+
+    function loadEntities(data){
+      const entities = Array.isArray(data.entities) ? data.entities : [];
+      const chips = document.getElementById('entityChips');
+      const aiSuggestions = document.getElementById('aiSuggestions');
+      
+      if (chips) chips.innerHTML = '';
+
+      const groups = {};
+      entities.forEach((e,i)=>{
+        const g = (e.type || 'Other').toLowerCase();
+        groups[g] = groups[g] || [];
+        groups[g].push({ idx: i, word: e.value || e.text || '', confidence: e.confidence || 0 });
+      });
+
+      if (chips) {
+        Object.keys(groups).forEach(g=>{
+          const b = document.createElement('button');
+          b.className = 'chip';
+          b.innerText = `${g} (${groups[g].length})`;
+          b.addEventListener('click', ()=> highlightGroup(groups[g]));
+          chips.appendChild(b);
+        });
+      }
+
+      const suggestions = data.suggested_questions || data.suggestions || [];
+      if (aiSuggestions) {
+        aiSuggestions.innerHTML = '';
+        if(Array.isArray(suggestions) && suggestions.length){
+          suggestions.slice(0,6).forEach(s=>{ 
+            const p = document.createElement('div'); 
+            p.style.marginBottom='6px'; 
+            p.innerText = '• ' + s; 
+            aiSuggestions.appendChild(p); 
+          });
+        } else {
+          aiSuggestions.innerHTML = '<div class="small" style="color:var(--muted)">No suggestions available</div>';
+        }
+      }
+    }
+
+    function highlightGroup(list){
+      const liveOutput = document.getElementById('liveOutput');
+      if (!liveOutput) return;
+      
+      let current = escapeHtml(liveOutput.innerText);
+      const words = [...new Set(list.map(x=>x.word).filter(Boolean))].sort((a,b)=>b.length-a.length);
+      words.forEach(w=>{
+        try{
+          const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp(esc, 'ig');
+          current = current.replace(re, (m)=> `<span style="background:rgba(11,116,222,0.12);padding:2px 4px;border-radius:4px">${escapeHtml(m)}</span>`);
+        }catch(e){}
+      });
+      liveOutput.innerHTML = current;
+    }
+
+    /* Prescription generation from studio */
+    const generatePrescriptionBtn = document.getElementById('generatePrescriptionBtn');
+    if (generatePrescriptionBtn) {
+      generatePrescriptionBtn.addEventListener('click', async ()=>{
+        const doctor = document.getElementById('doctor')?.value.trim() || '';
+        const name = document.getElementById('name')?.value.trim() || '';
+        const age = document.getElementById('age')?.value.trim() || '';
+        const symptoms = document.getElementById('liveOutput')?.innerText.trim() || '';
+        
+        if(!doctor || !name || !age || !symptoms){ 
+          showToast('Please fill Doctor, Patient, Age and transcript'); 
+          return; 
+        }
+        
+        try{
+          const res = await fetch(BACKEND + '/generate_prescription', { 
+            method: 'POST', 
+            headers: {'Content-Type':'application/json'}, 
+            body: JSON.stringify({ doctor, name, age, symptoms, medicines: '' }) 
+          });
+          if(!res.ok) throw new Error('Generate failed');
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); 
+          a.href = url; 
+          a.download = 'prescription.pdf'; 
+          a.click();
+          persistPrescription({ doctor, name, age, symptoms, timestamp: Date.now() });
+          showToast('Prescription generated');
+        }catch(e){ 
+          console.error(e); 
+          showToast('Error generating prescription: ' + e.message); 
+        }
+      });
+    }
+
+    /* Prescription page generate */
+    const pGenerate = document.getElementById('p_generate');
+    if (pGenerate) {
+      pGenerate.addEventListener('click', async ()=>{
+        const doctor = document.getElementById('p_doctor')?.value.trim() || '';
+        const name = document.getElementById('p_name')?.value.trim() || '';
+        const age = document.getElementById('p_age')?.value.trim() || '';
+        const symptoms = document.getElementById('p_symptoms')?.value.trim() || '';
+        
+        if(!doctor || !name || !age || !symptoms){ 
+          showToast('Fill doctor, patient, age and symptoms'); 
+          return; 
+        }
+        
+        try{
+          const res = await fetch(BACKEND + '/generate_prescription', { 
+            method: 'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify({ doctor, name, age, symptoms, medicines: '' }) 
+          });
+          if(!res.ok) throw new Error('Generate failed');
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a'); 
+          a.href = url; 
+          a.download = 'prescription.pdf'; 
+          a.click();
+          
+          const pOut = document.getElementById('p_out');
+          if (pOut) pOut.innerText = 'Prescription downloaded.';
+          
+          persistPrescription({ doctor, name, age, symptoms, timestamp: Date.now() });
+          showToast('Prescription downloaded');
+        }catch(e){ 
+          console.error(e); 
+          showToast('Error: ' + e.message); 
+        }
+      });
+    }
+
+    /* Clear button */
+    const clearBtn = document.getElementById('clearBtn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', ()=>{
+        const liveOutput = document.getElementById('liveOutput');
+        const medicines = document.getElementById('medicines');
+        const doctor = document.getElementById('doctor');
+        const name = document.getElementById('name');
+        const age = document.getElementById('age');
+        const entityChips = document.getElementById('entityChips');
+        const entityOutput = document.getElementById('entityOutput');
+        const aiSuggestions = document.getElementById('aiSuggestions');
+        const suggestionBox = document.getElementById('suggestionBox');
+        const recStatus = document.getElementById('recStatus');
+        
+        if (liveOutput) liveOutput.innerText = '';
+        if (medicines) medicines.value = '';
+        if (doctor) doctor.value = '';
+        if (name) name.value = '';
+        if (age) age.value = '';
+        if (entityChips) entityChips.innerHTML = '';
+        if (entityOutput) entityOutput.innerHTML = '';
+        if (aiSuggestions) aiSuggestions.innerHTML = 'No suggestions yet';
+        if (suggestionBox) suggestionBox.innerHTML = '';
+        if (recStatus) recStatus.innerText = 'Idle';
+        
+        showToast('Cleared');
+      });
+    }
+
+    /* Save transcript */
+    const saveTranscript = document.getElementById('saveTranscript');
+    if (saveTranscript) {
+      saveTranscript.addEventListener('click', ()=>{
+        const liveOutput = document.getElementById('liveOutput');
+        const text = liveOutput?.innerText.trim();
+        if(!text) return showToast('Nothing to save');
+        persistTranscript({ 
+          text, 
+          lang: 'unknown', 
+          timestamp: Date.now(), 
+          patient: document.getElementById('name')?.value || 'Unknown' 
+        });
+        showToast('Transcript saved');
+      });
+    }
+
+    /* Persistence functions */
+    function persistTranscript(rec){ 
+      const arr = JSON.parse(localStorage.getItem('ai_transcripts')||'[]'); 
+      arr.unshift(rec); 
+      if(arr.length > 100) arr.splice(100); 
+      localStorage.setItem('ai_transcripts', JSON.stringify(arr)); 
+      renderHistory(); 
+    }
+
+    function persistPrescription(rec){ 
+      const arr = JSON.parse(localStorage.getItem('ai_prescriptions')||'[]'); 
+      arr.unshift(rec); 
+      if(arr.length > 200) arr.splice(200); 
+      localStorage.setItem('ai_prescriptions', JSON.stringify(arr)); 
+      renderHistory(); 
+    }
+
+    function renderHistory(){ 
+      const trans = JSON.parse(localStorage.getItem('ai_transcripts')||'[]'); 
+      const histDiv = document.getElementById('historyList'); 
+      const recent = document.getElementById('recentList'); 
+      
+      if (histDiv) histDiv.innerHTML = ''; 
+      if (recent) recent.innerHTML = ''; 
+      
+      if(!trans.length){ 
+        if (histDiv) histDiv.innerHTML = '<div class="small" style="color:var(--muted)">No history yet</div>'; 
+        if (recent) recent.innerHTML = '<div class="small" style="color:var(--muted)">No recent transcripts</div>'; 
+        return; 
+      } 
+      
+      trans.slice(0,20).forEach(t=>{ 
+        const dt = new Date(t.timestamp); 
+        const card = document.createElement('div'); 
+        card.className='card'; 
+        card.style.marginBottom='8px'; 
+        card.innerHTML = `<div style="display:flex;justify-content:space-between"><div><strong>${escapeHtml(t.patient||'Patient')}</strong><div class="small" style="color:var(--muted)">${dt.toLocaleString()} • ${escapeHtml(t.lang||'')}</div></div><div><button class="btn ghost viewBtn">View</button></div></div><div style="margin-top:8px;color:var(--muted)">${escapeHtml((t.text||'').slice(0,220))}</div>`; 
+        
+        const viewBtn = card.querySelector('.viewBtn');
+        if (viewBtn) {
+          viewBtn.addEventListener('click', ()=>{ 
+            showPage('studio'); 
+            const liveOutput = document.getElementById('liveOutput');
+            if (liveOutput) liveOutput.innerText = t.text; 
+          });
+        }
+        
+        if (histDiv) histDiv.appendChild(card); 
+        
+        if (recent) {
+          const mini = document.createElement('div'); 
+          mini.style.marginBottom='8px'; 
+          mini.innerHTML = `<strong>${escapeHtml(t.patient||'Patient')}</strong><div class="small" style="color:var(--muted)">${dt.toLocaleString()}</div><div class="small" style="color:var(--muted);margin-top:6px">${escapeHtml((t.text||'').slice(0,120))}</div>`; 
+          recent.appendChild(mini);
+        }
+      }); 
+    }
+
+    /* Signature upload */
+    let signatureBase64 = "";
+    const signatureUpload = document.getElementById("signatureUpload");
+    if (signatureUpload) {
+      signatureUpload.addEventListener("change", function(e){
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event){
+          signatureBase64 = event.target.result;
+          const preview = document.getElementById("signaturePreview");
+          if (preview) {
+            preview.src = signatureBase64;
+            preview.style.display = "block";
+          }
+          showToast("Signature uploaded");
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /* Wire recorder buttons */
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    
+    if (startBtn) startBtn.addEventListener('click', startRecording);
+    if (pauseBtn) pauseBtn.addEventListener('click', pauseRecording);
+    if (resumeBtn) resumeBtn.addEventListener('click', resumeRecording);
+    if (stopBtn) stopBtn.addEventListener('click', stopRecording);
+
+    /* Initialize app */
+    initApp();
+    renderHistory();
+  </script>
+</body>
+</html>
